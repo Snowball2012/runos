@@ -24,6 +24,7 @@ set(SOURCES
     ArpHandler.cc
     StaticFlowPusher.cc
     PathVerifier.cc
+    AccessControl.cc
     # Loader
     Main.cc
     # REST
@@ -42,7 +43,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/third_party/webserver
 )
 
-add_executable(runos ${SOURCES}) 
+add_executable(runos ${SOURCES} AccessControl.cc AccessControl.hh)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 
 target_link_libraries(runos

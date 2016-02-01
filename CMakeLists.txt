@@ -20,6 +20,9 @@ include_directories(SYSTEM
     ${GLOG_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/prefix/include
+    /home/snowball/runos/third_party/libfluid_base
+    /home/snowball/runos/third_party/libfluid_msg
+    /home/snowball/runos/build/prefix/include
 )
 
 link_directories(

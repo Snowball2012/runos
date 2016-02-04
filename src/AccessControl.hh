@@ -52,7 +52,7 @@ public:
 
     std::string orderingName() const override { return "access_control"; }
     //bool isPrereq(const std::string& name) const override  { return (name == "arp-handler"); }
-    bool isPostreq(const std::string& name) const override { return (name == "arp-handler" || name == "forwarding"); }
+    bool isPostreq(const std::string& name) const override { return (name == "arp-handler"); }
     std::unique_ptr<OFMessageHandler> makeOFMessageHandler() override;
 
 };

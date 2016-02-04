@@ -25,47 +25,28 @@ void AccessControl::init(Loader *loader, const Config& config)
     ctrl->registerHandler(this);
     m_table.reset(new AccessTable());
     JSONTableParser::parseFile("./access_control_config.json", *m_table.get());
-    m_table->def_rule.allow_arp = true;
 }
 
 OFMessageHandler::Action AccessControl::Handler::processMiss(OFConnection* ofconn, Flow* flow)
 {
 
-    if (m_table->match(*flow))
-    {
-        LOG(INFO) << (flow->pkt()->readEthType() == ARP_ETH_TYPE ? "ARP" : "ICMP") << " flow passed from host: " << flow->loadEthSrc().to_string();
-        return Continue;
+    if (flow->loadEthType() == ARP_ETH_TYPE || (flow->loadEthType() == 0x0800 && flow->loadIPProto() == ICMP_PROTO) ) {
+        if (m_table->match(*flow)) {
+            LOG(INFO) << (flow->pkt()->readEthType() == ARP_ETH_TYPE ? "ARP" : "ICMP") << " flow PASSED from host: "
+                << flow->loadEthSrc().to_string() << " to host: " << flow->loadEthDst().to_string();
+            flow->setFlags(Flow::Disposable);
+            return Continue;
+        }
+        else if (flow->pkt()->readIPProto() == ICMP_PROTO ||
+                 flow->pkt()->readEthType() == ARP_ETH_TYPE) {
+            LOG(INFO) << (flow->pkt()->readEthType() == ARP_ETH_TYPE ? "ARP" : "ICMP") << " flow DENIED from host: "
+                << flow->loadEthSrc().to_string() << " to host: " << flow->loadEthDst().to_string();
+            flow->setFlags(Flow::Disposable); // Unnecessary line, but it's easier to debug with it
+            return Stop;
+        }
     }
-    else if (flow->match(of13::IPProto(ICMP_PROTO)) || flow->pkt()->readEthType() == ARP_ETH_TYPE)
-    {
-        LOG(INFO) << (flow->pkt()->readEthType() == ARP_ETH_TYPE ? "ARP" : "ICMP") << " flow denied from host: " << flow->loadEthSrc().to_string();
-        // Ignore the flow
-        /*flow->setFlags(Flow::Disposable);
-        Tins::IP pdu(Tins::IP::address_type(flow->loadIPv4Src().getIPv4()),
-                     Tins::IP::address_type(flow->loadIPv4Dst().getIPv4()));
 
-        Tins::ICMP icmp(Tins::ICMP::DEST_UNREACHABLE);
-        icmp.code(DEST_UNREACHABLE_ADM);
-        pdu /= icmp;
-
-        Tins::PDU::serialization_type ser = pdu.serialize();
-        uint8_t* data = &(ser[0]);
-        of13::PacketOut out;
-        out.buffer_id(OFP_NO_BUFFER);
-        out.data(data, ser.size());
-        of13::OutputAction action(flow->pkt()->readInPort(), 0);
-        out.add_action(action);
-
-        uint8_t* buffer = out.pack();
-        ofconn->send(buffer, out.length());
-        OFMsg::free_buffer(buffer);*/
-
-        return Stop;
-    }
-    else
-    {
-        return Continue;
-    }
+    return Continue;
 }
 
 std::unique_ptr<OFMessageHandler> AccessControl::makeOFMessageHandler()
@@ -90,8 +71,9 @@ bool AccessControl::AccessTable::Rule::match(Flow &flow) const
 
     bool is_icmp = flow.match(of13::IPProto(ICMP_PROTO));
 
-    if (is_icmp)
+    if (is_icmp) {
         return (allowed_hosts.find(flow.loadIPv4Dst().getIPv4()) != allowed_hosts.cend());
+    }
 
     return false;
 }
@@ -115,9 +97,11 @@ void AccessControl::JSONTableParser::parseFile(const std::string &filename, Acce
     }
     auto def_rule = config_cd(json, "def-rule");
     table.def_rule.allow_arp = config_get(def_rule, "allow-arp", false);
-    auto hosts = config_cd(def_rule, "hosts");
-    for (const auto& host : hosts)
-        table.def_rule.allowed_hosts.insert(IPAddress::IPv4from_string(host.first));
+    auto hosts = config_get_array(def_rule, "hosts");
+
+    for (const auto& host : hosts) {
+        table.def_rule.allowed_hosts.insert(IPAddress::IPv4from_string(host.string_value()));
+    }
 
     auto entries = config_cd(json, "clients");
     for (const auto& entry : entries)
@@ -125,9 +109,9 @@ void AccessControl::JSONTableParser::parseFile(const std::string &filename, Acce
         AccessTable::Rule rule;
         auto rule_json = entry.second.object_items();
         rule.allow_arp = config_get(rule_json, "allow-arp", false);
-        auto hosts = config_cd(rule_json, "hosts");
+        auto hosts = config_get_array(rule_json, "hosts");
         for (const auto& host : hosts)
-            rule.allowed_hosts.insert(IPAddress::IPv4from_string(host.first));
+            rule.allowed_hosts.insert(IPAddress::IPv4from_string(host.string_value()));
         table.entries[entry.first] = rule;
     }
 }

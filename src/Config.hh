@@ -71,3 +71,11 @@ inline Config config_cd(const Config& config,
     return (it != config.end()) ? 
         it->second.object_items() : Config();
 }
+
+inline json11::Json::array config_get_array(const Config& config,
+                                             const std::string& key)
+{
+    auto it = config.find(key);
+    return (it != config.end()) ?
+           it->second.array_items() : json11::Json::array();
+}

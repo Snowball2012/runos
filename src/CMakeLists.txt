@@ -43,7 +43,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/third_party/webserver
 )
 
-add_executable(runos ${SOURCES} AccessControl.cc AccessControl.hh)
+add_executable(runos ${SOURCES})
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 
 target_link_libraries(runos
